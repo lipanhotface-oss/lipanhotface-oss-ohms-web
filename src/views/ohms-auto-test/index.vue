@@ -349,8 +349,7 @@
               </div>
             </el-card>
             <!-- 上下分割拖拽手柄 -->
-            <div
-            class="resize-handle-vertical"
+            <div class="resize-handle-vertical"
             @mousedown="startResizeTop"/>
           </div>
           <!-- 下方控制台区域 -->
