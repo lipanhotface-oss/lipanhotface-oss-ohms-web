@@ -10,19 +10,19 @@
       >
         <div class="menu-sidebar">
           <div class="sidebar-header">
-            <h3><i class="el-icon-s-platform"></i> 脚本模块</h3>
+            <h3><i class="el-icon-s-platform" /> 脚本模块</h3>
             <div class="header-actions">
               <el-button
                 type="text"
                 icon="el-icon-refresh"
-                @click="refreshTree"
                 size="mini"
+                @click="refreshTree"
               />
               <el-button
                 type="text"
                 icon="el-icon-search"
-                @click="showSearch = !showSearch"
                 size="mini"
+                @click="showSearch = !showSearch"
               />
             </div>
           </div>
@@ -51,9 +51,9 @@
               @check-change="handleCheckChange"
               @node-click="handleTreeNodeClick"
             >
-              <span class="custom-tree-node" slot-scope="{ node, data }">
+              <span slot-scope="{ node, data }" class="custom-tree-node">
                 <span class="tree-node-content">
-                  <i :class="data.icon || getNodeIcon(node)"></i>
+                  <i :class="data.icon || getNodeIcon(node)" />
                   <span class="tree-node-label">{{ data.name }}</span>
                   <el-badge
                     v-if="data.type === 'menu' && getChildrenCount(data) > 0"
@@ -101,7 +101,7 @@
         <div
           class="resize-handle"
           @mousedown="startResizeLeft"
-        ></div>
+        />
       </div>
 
       <!-- 右侧主内容区 -->
@@ -119,7 +119,7 @@
                 <div class="header-left">
                   <span>已选择测试脚本 ({{ selectedScripts.length }}个)</span>
                   <!-- 执行统计信息 -->
-                  <div class="execution-stats-header" v-if="selectedScripts.length > 0">
+                  <div v-if="selectedScripts.length > 0" class="execution-stats-header">
                     <div class="stat-badges">
                       <el-tag size="mini" type="success">
                         成功: {{ stats.success }}
@@ -212,25 +212,25 @@
                           <el-button
                             type="primary"
                             icon="el-icon-video-play"
-                            @click="executeAll"
                             :loading="executingAll"
                             :disabled="selectedScripts.length === 0"
+                            @click="executeAll"
                           >
                             执行全部
                           </el-button>
                           <el-button
                             type="success"
                             icon="el-icon-download"
-                            @click="exportSelected"
                             :disabled="selectedScripts.length === 0"
+                            @click="exportSelected"
                           >
                             导出
                           </el-button>
                           <el-button
                             type="danger"
                             icon="el-icon-delete"
-                            @click="clearSelected"
                             :disabled="selectedScripts.length === 0"
+                            @click="clearSelected"
                           >
                             清空
                           </el-button>
@@ -246,7 +246,6 @@
                   style="width: 100%"
                   :height="selectedScriptsHeight - 270"
                   size="small"
-                  @row-click="handleRowClick"
                 >
                   <el-table-column
                     type="index"
@@ -256,13 +255,35 @@
                   />
                   <el-table-column
                     prop="name"
-                    label="脚本名称"
+                    label="用例名称"
                     width="180"
                   >
                     <template slot-scope="{ row }">
                       <div class="script-name">
-                        <i :class="row.icon || 'el-icon-s-promotion'"></i>
+                        <i :class="row.icon || 'el-icon-s-promotion'" />
                         <span>{{ row.name }}</span>
+                      </div>
+                    </template>
+                  </el-table-column>
+                  <el-table-column
+                    prop="requirement_number"
+                    label="需求信息"
+                    width="280"
+                  >
+                    <template slot-scope="{ row }">
+                      <div class="requirements-container">
+                        <div v-if="row.requirement_number && row.requirement_number.length > 0" class="requirements-list">
+                          <el-tag
+                            v-for="req in row.requirement_number"
+                            :key="req.id"
+                            type="info"
+                            size="mini"
+                            class="requirement-tag"
+                          >
+                            {{ req.name }}
+                          </el-tag>
+                        </div>
+                        <span v-else class="requirement-empty">-</span>
                       </div>
                     </template>
                   </el-table-column>
@@ -349,8 +370,10 @@
               </div>
             </el-card>
             <!-- 上下分割拖拽手柄 -->
-            <div class="resize-handle-vertical"
-            @mousedown="startResizeTop"/>
+            <div
+              class="resize-handle-vertical"
+              @mousedown="startResizeTop"
+            />
           </div>
           <!-- 下方控制台区域 -->
           <div class="bottom-panel">
@@ -387,14 +410,14 @@
               <div class="console-content">
                 <div class="console-output-area" style="height:250px">
                   <pre
-                    style="height:200px"
                     ref="consoleOutput"
+                    style="height:200px"
                     class="console-output"
                     :class="{ 'executing': isExecuting }"
                   >{{ consoleContent }}1</pre>
                   <div v-if="isExecuting" class="execution-indicator">
                     <div class="execution-info">
-                      <i class="el-icon-loading"></i>
+                      <i class="el-icon-loading" />
                       正在执行 {{ currentExecution }} / {{ totalExecutions }}
                       ({{ currentExecutionName }})
                     </div>
@@ -439,42 +462,41 @@
           <el-tab-pane label="参数配置" name="parameters">
             <div v-if="currentScript.parameters && currentScript.parameters.length > 0" class="script-parameters">
               <el-form :model="scriptParams" label-width="120px">
-                <template v-for="param in currentScript.parameters">
-                  <el-form-item
-                    :key="param.name"
-                    :label="param.label"
-                    :required="param.required"
+                <el-form-item
+                  v-for="param in currentScript.parameters"
+                  :key="param.name"
+                  :label="param.label"
+                  :required="param.required"
+                >
+                  <el-input
+                    v-if="param.type === 'string'"
+                    v-model="scriptParams[param.name]"
+                    :placeholder="param.description"
+                  />
+                  <el-input-number
+                    v-else-if="param.type === 'number'"
+                    v-model="scriptParams[param.name]"
+                    :min="param.min"
+                    :max="param.max"
+                    :step="param.step || 1"
+                  />
+                  <el-switch
+                    v-else-if="param.type === 'boolean'"
+                    v-model="scriptParams[param.name]"
+                  />
+                  <el-select
+                    v-else-if="param.type === 'select'"
+                    v-model="scriptParams[param.name]"
+                    style="width: 100%"
                   >
-                    <el-input
-                      v-if="param.type === 'string'"
-                      v-model="scriptParams[param.name]"
-                      :placeholder="param.description"
+                    <el-option
+                      v-for="opt in param.options"
+                      :key="opt.value"
+                      :label="opt.label"
+                      :value="opt.value"
                     />
-                    <el-input-number
-                      v-else-if="param.type === 'number'"
-                      v-model="scriptParams[param.name]"
-                      :min="param.min"
-                      :max="param.max"
-                      :step="param.step || 1"
-                    />
-                    <el-switch
-                      v-else-if="param.type === 'boolean'"
-                      v-model="scriptParams[param.name]"
-                    />
-                    <el-select
-                      v-else-if="param.type === 'select'"
-                      v-model="scriptParams[param.name]"
-                      style="width: 100%"
-                    >
-                      <el-option
-                        v-for="opt in param.options"
-                        :key="opt.value"
-                        :label="opt.label"
-                        :value="opt.value"
-                      />
-                    </el-select>
-                  </el-form-item>
-                </template>
+                  </el-select>
+                </el-form-item>
               </el-form>
             </div>
             <div v-else class="no-parameters">
@@ -498,7 +520,7 @@ import 'codemirror/theme/monokai.css'
 import 'codemirror/mode/python/python.js'
 import 'codemirror/addon/selection/active-line.js'
 import 'codemirror/addon/edit/matchbrackets.js'
-
+import { getMenuConfig } from '@/api/script'
 export default {
   components: {
     codemirror
@@ -581,7 +603,22 @@ export default {
 
       // 执行状态
       executingAll: false,
-      executionQueue: []
+      executionQueue: [],
+
+      // 需求编号列表
+      requirementNumberList: [
+        { id: 1, name: '需求1' },
+        { id: 2, name: '需求2' },
+        { id: 3, name: '需求3' },
+        { id: 4, name: '需求4' },
+        { id: 5, name: '需求5' },
+        { id: 6, name: '需求6' },
+        { id: 7, name: '需求7' }
+      ],
+
+      // 当前选择的脚本ID和需求
+      selectedScriptId: null,
+      selectedRequirementId: null
     }
   },
 
@@ -611,168 +648,183 @@ export default {
   methods: {
     // 初始化数据
     initData() {
-      this.treeMenus = this.getTreeData()
+      this.getTreeData()
       this.loadExecutionConfig()
     },
 
     // 获取树形数据
     getTreeData() {
-      return [
-        {
-          id: 'group_1',
-          name: 'P1',
-          icon: 'el-icon-s-data',
-          type: 'group',
-          children: [
-            {
-              id: 'p1',
-              name: 'P1飞行状态',
-              icon: 'el-icon-monitor',
-              type: 'menu',
-              children: [
-                {
-                  id: 'script_1',
-                  name: '飞行状态监控',
-                  icon: 'el-icon-s-promotion',
-                  type: 'function',
-                  data: {
-                    name: '飞行状态监控-S001',
-                    description: '实时监控飞行状态和参数',
-                    script: 'scripts/flight_status.py',
-                    status: 'ready',
-                    parameters: [
-                      {
-                        name: 'interval',
-                        label: '监控间隔',
-                        type: 'number',
-                        default: 5,
-                        min: 1,
-                        max: 60
-                      }
-                    ]
-                  }
-                },
-                {
-                  id: 'script_2',
-                  name: '飞机事件S001',
-                  icon: 'el-icon-fan',
-                  type: 'function',
-                  data: {
-                    name: '飞机事件S001',
-                    description: '监控发动机运行状态',
-                    script: 'scripts/engine_monitor.py',
-                    status: 'ready'
-                  }
-                }
-              ]
+      // 优先从数据库读取配置
+      getMenuConfig()
+        .then(res => {
+          if (res && (res.code === 20000 || res.code === 200)) {
+            const config = res.data
+            if (config && Array.isArray(config) && config.length > 0) {
+              console.log('从数据库加载配置成功', config)
+              this.treeMenus = JSON.parse(JSON.stringify(config))
             }
-          ]
-        },
-        {
-          id: 'group_2',
-          name: 'P2',
-          icon: 'el-icon-s-data',
-          type: 'group',
-          children: [
-            {
-              id: 'p2',
-              name: 'P2通信测试',
-              icon: 'el-icon-cpu',
-              type: 'menu',
-              children: [
-                {
-                  id: 'script_2-1',
-                  name: 'P2通信测试',
-                  icon: 'el-icon-s-operation',
-                  type: 'function',
-                  data: {
-                    name: 'P2通信测试',
-                    description: '数据处理和分析脚本',
-                    script: 'scripts/data_processing.py',
-                    status: 'ready'
-                  }
-                }
-              ]
-            }
-          ]
-        },
-        {
-          id: 'group_3',
-          name: 'P3',
-          icon: 'el-icon-s-data',
-          type: 'group',
-          children: [
-            {
-              id: 'p3-1',
-              name: 'P3故障诊断',
-              icon: 'el-icon-s-opportunity',
-              type: 'menu',
-              children: [
-                {
-                  id: 'script_5',
-                  name: '故障诊断S001',
-                  icon: 'el-icon-s-claim',
-                  type: 'function',
-                  data: {
-                    name: '故障诊断S001',
-                    description: '自动化单元测试脚本',
-                    script: 'scripts/unit_test.py',
-                    status: 'ready'
-                  }
-                }
-              ]
-            },
-            {
-              id: 'p3-2',
-              name: 'P3维护模式',
-              icon: 'el-icon-s-flag',
-              type: 'menu',
-              children: [
-                {
-                  id: 'script_6',
-                  name: '维护模式S001',
-                  icon: 'el-icon-s-marketing',
-                  type: 'function',
-                  data: {
-                    name: '维护模式S001',
-                    description: '系统集成测试脚本',
-                    script: 'scripts/integration_test.py',
-                    status: 'ready'
-                  }
-                }
-              ]
-            }
-          ]
-        },
-        {
-          id: 'group_4',
-          name: 'P4',
-          icon: 'el-icon-s-data',
-          type: 'group',
-          children: [
-            {
-              id: 'p4',
-              name: 'P4构型管理',
-              icon: 'el-icon-cpu',
-              type: 'menu',
-              children: [
-                {
-                  id: 'script_4-1',
-                  name: '构型管理S001',
-                  icon: 'el-icon-s-operation',
-                  type: 'function',
-                  data: {
-                    name: '构型管理S001',
-                    description: '构型管理S001',
-                    script: 'scripts/data_processing.py',
-                    status: 'ready'
-                  }
-                }
-              ]
-            }
-          ]
-        }
-      ]
+          }
+        })
+        .catch(err => {
+          console.error('从数据库读取配置失败:', err)
+          this.treeMenus = []
+        })
+      // return [
+      //   {
+      //     id: 'group_1',
+      //     name: 'P1',
+      //     icon: 'el-icon-s-data',
+      //     type: 'group',
+      //     children: [
+      //       {
+      //         id: 'p1',
+      //         name: 'P1飞行状态',
+      //         icon: 'el-icon-monitor',
+      //         type: 'menu',
+      //         children: [
+      //           {
+      //             id: 'script_1',
+      //             name: '飞行状态监控',
+      //             icon: 'el-icon-s-promotion',
+      //             type: 'function',
+      //             data: {
+      //               name: '飞行状态监控-S001',
+      //               description: '实时监控飞行状态和参数',
+      //               script: 'scripts/flight_status.py',
+      //               status: 'ready',
+      //               parameters: [
+      //                 {
+      //                   name: 'interval',
+      //                   label: '监控间隔',
+      //                   type: 'number',
+      //                   default: 5,
+      //                   min: 1,
+      //                   max: 60
+      //                 }
+      //               ]
+      //             }
+      //           },
+      //           {
+      //             id: 'script_2',
+      //             name: '飞机事件S001',
+      //             icon: 'el-icon-fan',
+      //             type: 'function',
+      //             data: {
+      //               name: '飞机事件S001',
+      //               description: '监控发动机运行状态',
+      //               script: 'scripts/engine_monitor.py',
+      //               status: 'ready'
+      //             }
+      //           }
+      //         ]
+      //       }
+      //     ]
+      //   },
+      //   {
+      //     id: 'group_2',
+      //     name: 'P2',
+      //     icon: 'el-icon-s-data',
+      //     type: 'group',
+      //     children: [
+      //       {
+      //         id: 'p2',
+      //         name: 'P2通信测试',
+      //         icon: 'el-icon-cpu',
+      //         type: 'menu',
+      //         children: [
+      //           {
+      //             id: 'script_2-1',
+      //             name: 'P2通信测试',
+      //             icon: 'el-icon-s-operation',
+      //             type: 'function',
+      //             data: {
+      //               name: 'P2通信测试',
+      //               description: '数据处理和分析脚本',
+      //               script: 'scripts/data_processing.py',
+      //               status: 'ready'
+      //             }
+      //           }
+      //         ]
+      //       }
+      //     ]
+      //   },
+      //   {
+      //     id: 'group_3',
+      //     name: 'P3',
+      //     icon: 'el-icon-s-data',
+      //     type: 'group',
+      //     children: [
+      //       {
+      //         id: 'p3-1',
+      //         name: 'P3故障诊断',
+      //         icon: 'el-icon-s-opportunity',
+      //         type: 'menu',
+      //         children: [
+      //           {
+      //             id: 'script_5',
+      //             name: '故障诊断S001',
+      //             icon: 'el-icon-s-claim',
+      //             type: 'function',
+      //             data: {
+      //               name: '故障诊断S001',
+      //               description: '自动化单元测试脚本',
+      //               script: 'scripts/unit_test.py',
+      //               status: 'ready'
+      //             }
+      //           }
+      //         ]
+      //       },
+      //       {
+      //         id: 'p3-2',
+      //         name: 'P3维护模式',
+      //         icon: 'el-icon-s-flag',
+      //         type: 'menu',
+      //         children: [
+      //           {
+      //             id: 'script_6',
+      //             name: '维护模式S001',
+      //             icon: 'el-icon-s-marketing',
+      //             type: 'function',
+      //             data: {
+      //               name: '维护模式S001',
+      //               description: '系统集成测试脚本',
+      //               script: 'scripts/integration_test.py',
+      //               status: 'ready'
+      //             }
+      //           }
+      //         ]
+      //       }
+      //     ]
+      //   },
+      //   {
+      //     id: 'group_4',
+      //     name: 'P4',
+      //     icon: 'el-icon-s-data',
+      //     type: 'group',
+      //     children: [
+      //       {
+      //         id: 'p4',
+      //         name: 'P4构型管理',
+      //         icon: 'el-icon-cpu',
+      //         type: 'menu',
+      //         children: [
+      //           {
+      //             id: 'script_4-1',
+      //             name: '构型管理S001',
+      //             icon: 'el-icon-s-operation',
+      //             type: 'function',
+      //             data: {
+      //               name: '构型管理S001',
+      //               description: '构型管理S001',
+      //               script: 'scripts/data_processing.py',
+      //               status: 'ready'
+      //             }
+      //           }
+      //         ]
+      //       }
+      //     ]
+      //   }
+      // ]
     },
 
     // 获取子节点数量
@@ -806,7 +858,8 @@ export default {
 
     // 树节点勾选变化
     handleCheckChange(node, checked, indeterminate) {
-      if (node.type === 'function') {
+      console.log('handleCheckChange', node)
+      if (node.type === 'script') {
         if (checked) {
           this.selectedKeys.add(node.id)
           this.addScript(node)
@@ -819,7 +872,7 @@ export default {
 
     // 树节点点击
     handleTreeNodeClick(node) {
-      if (node.type === 'function') {
+      if (node.type === 'script') {
         // 勾选/取消勾选该节点
         this.$refs.treeRef.setChecked(node, !this.selectedKeys.has(node.id))
       }
@@ -831,7 +884,14 @@ export default {
       if (!existing) {
         this.selectedScripts.push({
           id: node.id,
-          ...node.data,
+          name: node.name,
+          description: node.description,
+          requirement_number: [
+            { id: 1, name: '需求1' },
+            { id: 2, name: '需求2' },
+
+          ],
+          selectedRequirementId: null,
           status: 'ready',
           progress: 0,
           duration: null
@@ -857,12 +917,43 @@ export default {
       }
     },
 
+    // 添加需求
+    addRequirement(script, requirementId) {
+      if (!requirementId) return
+      // 检查该需求是否已经添加
+      const exists = script.requirement_number.some(req => req.id === requirementId)
+      if (exists) {
+        this.$message.warning('该需求已添加')
+        script.selectedRequirementId = null
+        return
+      }
+      // 从列表中找到对应的需求
+      const requirement = this.requirementNumberList.find(r => r.id === requirementId)
+      if (requirement) {
+        script.requirement_number.push({ ...requirement })
+        this.$message.success('需求添加成功')
+        script.selectedRequirementId = null
+      }
+    },
+
+    // 删除需求
+    removeRequirement(scriptId, requirementId) {
+      const script = this.selectedScripts.find(s => s.id === scriptId)
+      if (script && script.requirement_number) {
+        const index = script.requirement_number.findIndex(req => req.id === requirementId)
+        if (index !== -1) {
+          script.requirement_number.splice(index, 1)
+          this.$message.success('需求已删除')
+        }
+      }
+    },
+
     // 全选节点
     checkAllNodes() {
       const getAllFunctionNodes = (nodes) => {
         let functionNodes = []
         for (const node of nodes) {
-          if (node.type === 'function') {
+          if (node.type === 'script') {
             functionNodes.push(node)
           }
           if (node.children) {
@@ -922,7 +1013,6 @@ export default {
         this.stats.endTime = new Date().toLocaleTimeString()
         this.logToConsole('执行完成!')
         this.logToConsole(`统计: 成功 ${this.stats.success}, 失败 ${this.stats.failed}, 成功率 ${this.successRate}%`)
-
       } catch (error) {
         this.logToConsole(`执行出错: ${error.message}`)
       } finally {
@@ -973,7 +1063,7 @@ export default {
         const startTime = Date.now()
 
         // 模拟执行进度
-        const updateProgress = async () => {
+        const updateProgress = async() => {
           for (let progress = 0; progress <= 100; progress += 20) {
             if (script.status !== 'processing') break
             this.updateScriptProgress(script.id, progress)
@@ -1006,7 +1096,6 @@ export default {
 
         this.stats.processing--
         this.stats.totalTime += duration
-
       } catch (error) {
         this.updateScriptStatus(script.id, 'failed', 100)
         this.stats.failed++
@@ -1710,4 +1799,37 @@ export default {
 .console-output::-webkit-scrollbar-thumb:hover {
   background: #666;
 }
+
+.requirements-container {
+  width: 100%;
+}
+
+.requirement-empty {
+  font-size: 12px;
+  color: #909399;
+}
+
+.requirements-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.requirement-tag {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.requirement-select-area {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #dcdfe6;
+}
+
+.requirement-select-area >>> .el-select {
+  width: 100%;
+}
+
 </style>

@@ -3,41 +3,50 @@
     <!-- 头部操作栏 -->
     <div class="config-header">
       <div class="header-left">
-        <h2><i class="el-icon-setting"></i> 菜单配置管理</h2>
+        <h2><i class="el-icon-setting" /> 菜单配置管理</h2>
         <p class="header-desc">配置左侧导航菜单结构，配置后立即生效</p>
       </div>
       <div class="header-actions">
         <el-button
           type="primary"
           icon="el-icon-download"
-          @click="exportConfig"
           size="small"
+          @click="exportConfig"
         >
           导出配置
         </el-button>
         <el-button
           type="success"
           icon="el-icon-upload"
-          @click="showImport = true"
           size="small"
+          @click="showImport = true"
         >
           导入配置
         </el-button>
         <el-button
+          type="info"
+          icon="el-icon-upload"
+          size="small"
+          :loading="uploadingRequirements"
+          @click="openRequirementUploadDialog"
+        >
+          导入需求
+        </el-button>
+        <el-button
           type="warning"
           icon="el-icon-refresh"
-          @click="resetToDefault"
           size="small"
+          @click="resetToDefault"
         >
           重置
         </el-button>
         <el-button
           type="primary"
           icon="el-icon-check"
-          @click="saveConfig"
-          :loading="saving"
-          :disabled="!scriptUploadSuccess"
           size="small"
+          :loading="saving"
+          :disabled="!hasUnsavedChanges && !scriptUploadSuccess"
+          @click="saveConfig"
         >
           保存配置
         </el-button>
@@ -55,32 +64,33 @@
               <el-button
                 type="text"
                 icon="el-icon-plus"
-                @click="addGroup"
                 size="mini"
+                @click="addGroup"
               >
                 添加分组
               </el-button>
               <el-button
                 type="text"
                 icon="el-icon-sort"
-                @click="toggleExpand"
                 size="mini"
+                @click="toggleExpand"
               >
                 {{ isExpanded ? '收起全部' : '展开全部' }}
               </el-button>
             </div>
           </div>
 
-          <div class="tree-container">
+          <div class="tree-search" style="padding: 10px; border-bottom: 1px solid #dcdfe6;">
             <el-input
               v-model="searchText"
               placeholder="搜索菜单..."
               prefix-icon="el-icon-search"
               size="small"
               clearable
-              style="margin-bottom: 10px;"
             />
+          </div>
 
+          <el-scrollbar class="tree-scrollbar">
             <el-tree
               ref="menuTree"
               :data="menuData"
@@ -92,9 +102,9 @@
               @node-click="handleNodeClick"
               @node-drop="handleDrop"
             >
-              <div class="tree-node" slot-scope="{ node, data }">
+              <div slot-scope="{ node, data }" class="tree-node">
                 <div class="node-content">
-                  <i :class="getNodeIcon(data.type)" class="node-icon"></i>
+                  <i :class="getNodeIcon(data.type)" class="node-icon" />
                   <span class="node-label">{{ data.name }}</span>
                   <el-tag
                     v-if="data.type === 'script'"
@@ -110,29 +120,29 @@
                     v-if="data.type !== 'script'"
                     type="text"
                     icon="el-icon-plus"
-                    @click.stop="addChild(node, data)"
                     size="mini"
                     title="添加子项"
+                    @click.stop="addChild(node, data)"
                   />
                   <el-button
                     type="text"
                     icon="el-icon-edit"
-                    @click.stop="editNode(data)"
                     size="mini"
                     title="编辑"
+                    @click.stop="editNode(data)"
                   />
                   <el-button
                     type="text"
                     icon="el-icon-delete"
-                    @click.stop="deleteNode(node, data)"
                     size="mini"
                     title="删除"
                     style="color: #F56C6C;"
+                    @click.stop="deleteNode(node, data)"
                   />
                 </div>
               </div>
             </el-tree>
-          </div>
+          </el-scrollbar>
 
           <div class="tree-stats">
             <el-row :gutter="10">
@@ -166,25 +176,25 @@
       </div>
 
       <!-- 可拖动分隔条 -->
-      <div class="splitter" @mousedown="startDrag" @touchstart.prevent="startDragTouch"></div>
+      <div class="splitter" @mousedown="startDrag" @touchstart.prevent="startDragTouch" />
 
       <!-- 右侧：配置表单 -->
       <div class="right-section">
         <el-card shadow="never">
           <div slot="header" class="section-header">
             <span>节点配置</span>
-            <div class="node-status" v-if="currentNode">
+            <div v-if="currentNode" class="node-status">
               <el-tag size="small" :type="getNodeTypeTag(currentNode.type)">
                 {{ getNodeTypeName(currentNode.type) }}
               </el-tag>
             </div>
           </div>
 
-          <div class="form-container" v-if="currentNode">
+          <div v-if="currentNode" class="form-container">
             <el-form
+              ref="configForm"
               :model="currentNode"
               :rules="formRules"
-              ref="configForm"
               label-width="80px"
               size="small"
             >
@@ -198,12 +208,13 @@
                 />
               </el-form-item>
 
-              <el-form-item label="类型" prop="type">
-                <el-radio-group v-model="currentNode.type" @change="handleTypeChange">
-                  <el-radio label="group">分组</el-radio>
-                  <el-radio label="menu">菜单</el-radio>
-                  <el-radio label="script">脚本</el-radio>
-                </el-radio-group>
+              <el-form-item label="类型">
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <el-tag size="small" :type="getNodeTypeTag(currentNode.type)">
+                    {{ getNodeTypeName(currentNode.type) }}
+                  </el-tag>
+                  <el-input v-model="currentNode.type" disabled size="small" style="width:120px;" />
+                </div>
               </el-form-item>
 
               <el-form-item label="图标">
@@ -220,7 +231,7 @@
                       :value="icon.value"
                     >
                       <span style="float: left">
-                        <i :class="icon.value"></i>
+                        <i :class="icon.value" />
                       </span>
                       <span style="float: right; color: #8492a6; font-size: 13px">
                         {{ icon.label }}
@@ -256,6 +267,44 @@
                   />
                 </el-form-item>
 
+                <el-form-item label="需求信息">
+                  <div style="display:flex; flex-direction:column; gap:8px;">
+                    <div>
+                      <el-tag
+                        v-for="req in currentNode.requirement_number"
+                        :key="req.id"
+                        closable
+                        type="info"
+                        style="margin-right:6px;"
+                        @close="removeRequirementFromNode(currentNode, req.id)"
+                      >
+                        {{ req.number }} - {{ req.name }}
+                      </el-tag>
+                      <span v-if="!currentNode.requirement_number || currentNode.requirement_number.length === 0" style="color:#909399">未配置需求</span>
+                    </div>
+
+                    <div style="display:flex; gap:8px; align-items:center;">
+                      <el-select
+                        v-model="currentNode._selectedRequirementIds"
+                        placeholder="多选需求并添加"
+                        size="small"
+                        style="min-width:240px;"
+                        multiple
+                        clearable
+                        @change="addRequirementToNode(currentNode, $event)"
+                      >
+                        <el-option
+                          v-for="r in requirementList"
+                          :key="r.id"
+                          :label="r.number + ' - ' + r.name"
+                          :value="r.id"
+                        />
+                      </el-select>
+                      <el-button type="text" size="small" @click="currentNode._selectedRequirementIds = []">清除选择</el-button>
+                    </div>
+                  </div>
+                </el-form-item>
+
                 <el-form-item label="参数">
                   <div class="params-container">
                     <div v-for="(param, index) in currentNode.params" :key="index" class="param-item">
@@ -274,16 +323,16 @@
                       <el-button
                         type="text"
                         icon="el-icon-delete"
-                        @click="removeParam(index)"
                         size="mini"
                         style="color: #F56C6C;"
+                        @click="removeParam(index)"
                       />
                     </div>
                     <el-button
                       type="text"
                       icon="el-icon-plus"
-                      @click="addParam"
                       size="mini"
+                      @click="addParam"
                     >
                       添加参数
                     </el-button>
@@ -316,7 +365,7 @@
 
           <div v-else class="no-selection">
             <div class="empty-tip">
-              <i class="el-icon-info" style="font-size: 48px; color: #C0C4CC;"></i>
+              <i class="el-icon-info" style="font-size: 48px; color: #C0C4CC;" />
               <p>请选择一个节点进行配置</p>
               <small>或点击左侧的"添加分组"按钮</small>
             </div>
@@ -330,8 +379,8 @@
             <el-button
               type="text"
               icon="el-icon-view"
-              @click="refreshPreview"
               size="mini"
+              @click="refreshPreview"
             >
               刷新
             </el-button>
@@ -340,21 +389,21 @@
             <div class="preview-tree">
               <div v-for="group in menuData" :key="group.id" class="preview-group">
                 <div class="preview-group-title">
-                  <i :class="group.icon || 'el-icon-folder'"></i>
+                  <i :class="group.icon || 'el-icon-folder'" />
                   {{ group.name }}
-                  <el-tag size="mini" v-if="!group.enabled" type="info">禁用</el-tag>
+                  <el-tag v-if="!group.enabled" size="mini" type="info">禁用</el-tag>
                 </div>
                 <div v-if="group.children" class="preview-children">
                   <div v-for="menu in group.children" :key="menu.id" class="preview-menu">
                     <div class="preview-menu-title">
-                      <i :class="menu.icon || 'el-icon-folder-opened'"></i>
+                      <i :class="menu.icon || 'el-icon-folder-opened'" />
                       {{ menu.name }}
                     </div>
                     <div v-if="menu.children" class="preview-scripts">
                       <div v-for="script in menu.children" :key="script.id" class="preview-script">
-                        <i :class="script.icon || 'el-icon-document'"></i>
+                        <i :class="script.icon || 'el-icon-document'" />
                         {{ script.name }}
-                        <span class="script-file" v-if="script.scriptFile">
+                        <span v-if="script.scriptFile" class="script-file">
                           ({{ script.scriptFile }})
                         </span>
                       </div>
@@ -384,14 +433,15 @@
           :on-change="handleFileUpload"
           accept=".json"
         >
-          <i class="el-icon-upload"></i>
+          <i class="el-icon-upload" />
           <div class="el-upload__text">
-            将JSON配置文件拖到此处<br/>
+            将JSON配置文件拖到此处
+            <br>
             或 <em>点击上传</em>
           </div>
         </el-upload>
         <div class="import-tips">
-          <p><i class="el-icon-warning"></i> 导入会覆盖当前配置</p>
+          <p><i class="el-icon-warning" /> 导入会覆盖当前配置</p>
         </div>
       </div>
       <span slot="footer" class="dialog-footer">
@@ -446,11 +496,45 @@
         <el-button @click="showServerScriptDialog = false">关闭</el-button>
       </span>
     </el-dialog>
+
+    <!-- 需求上传对话框 -->
+    <el-dialog
+      title="导入需求信息"
+      :visible.sync="showRequirementUploadDialog"
+      width="500px"
+    >
+      <div class="requirement-upload-dialog">
+        <div class="requirement-dialog-tips">
+          <p><i class="el-icon-info" /> 上传 Excel 文件（.xlsx 或 .xls），包含需求 ID、编号、名称、描述等字段</p>
+        </div>
+        <el-upload
+          class="requirement-upload"
+          drag
+          action="#"
+          :auto-upload="false"
+          :show-file-list="true"
+          :on-change="handleRequirementFileChange"
+          accept=".xlsx,.xls"
+        >
+          <i class="el-icon-upload" />
+          <div class="el-upload__text">
+            将 Excel 文件拖到此处
+            <br>
+            或 <em>点击上传</em>
+          </div>
+        </el-upload>
+      </div>
+      <span slot="footer" class="dialog-footer">
+        <el-button @click="showRequirementUploadDialog = false">取消</el-button>
+        <el-button :loading="uploadingRequirements" :disabled="!requirementFile" type="primary" @click="uploadRequirements">上传并保存</el-button>
+      </span>
+    </el-dialog>
   </div>
 </template>
 
 <script>
-import { uploadScript, getScriptList } from '@/api/script'
+import { uploadScript, getScriptList, saveMenuConfig, getMenuConfig, getRequirementList, saveRequirementList } from '@/api/script'
+import XLSX from 'xlsx'
 
 export default {
   name: 'SimpleMenuConfig',
@@ -485,6 +569,13 @@ export default {
       showServerScriptDialog: false, // 服务器脚本列表对话框
       serverScriptList: [], // 服务器上的脚本列表
       loadingServerScripts: false,
+
+      // 需求数据（从后端接口获取）
+      requirementList: [],
+      loadingRequirements: false,
+      showRequirementUploadDialog: false, // 需求上传对话框
+      requirementFile: null, // 上传的 xlsx 文件
+      uploadingRequirements: false,
 
       // 图标选项
       iconOptions: [
@@ -734,11 +825,22 @@ export default {
   watch: {
     searchText(val) {
       this.$refs.menuTree.filter(val)
+    },
+    // 监听菜单数据变化，标记有未保存的修改
+    menuData: {
+      handler() {
+        // 只有在不是保存中状态时才标记为未保存
+        if (!this.saving) {
+          this.hasUnsavedChanges = true
+        }
+      },
+      deep: true
     }
   },
 
   mounted() {
     this.loadConfig()
+    this.loadRequirementList()
   },
 
   beforeDestroy() {
@@ -818,18 +920,50 @@ export default {
     },
     // 加载配置
     loadConfig() {
+      // 优先从数据库读取配置
+      getMenuConfig()
+        .then(res => {
+          if (res && (res.code === 20000 || res.code === 200)) {
+            const config = res.data
+            if (config && Array.isArray(config) && config.length > 0) {
+              this.menuData = config
+              this.originalData = JSON.parse(JSON.stringify(this.menuData))
+              console.log('从数据库加载配置成功')
+              return
+            }
+          }
+          // 数据库没有配置，尝试从 localStorage 读取
+          this.loadFromLocalStorage()
+        })
+        .catch(err => {
+          console.error('从数据库读取配置失败:', err)
+          // 数据库读取失败，回退到 localStorage
+          this.loadFromLocalStorage()
+        })
+    },
+
+    // 从 localStorage 读取配置的备用方法
+    loadFromLocalStorage() {
       const saved = localStorage.getItem('script_menu_config')
       if (saved) {
         try {
           this.menuData = JSON.parse(saved)
+          this.originalData = JSON.parse(JSON.stringify(this.menuData))
+          console.log('从 localStorage 加载配置成功')
         } catch (e) {
-          console.error('加载配置失败:', e)
-          this.resetToDefault()
+          console.error('从 localStorage 加载配置失败:', e)
+          this.loadDefaultData()
         }
       } else {
-        this.resetToDefault()
+        this.loadDefaultData()
       }
+    },
+
+    // 加载默认配置
+    loadDefaultData() {
+      this.menuData = JSON.parse(JSON.stringify(this.defaultData))
       this.originalData = JSON.parse(JSON.stringify(this.menuData))
+      console.log('使用默认配置')
     },
 
     // 重置为默认配置
@@ -865,18 +999,30 @@ export default {
       // 保存到本地存储
       localStorage.setItem('script_menu_config', JSON.stringify(this.menuData))
 
-      // 更新原始数据
-      this.originalData = JSON.parse(JSON.stringify(this.menuData))
-
-      // 通知主页面更新
-      window.dispatchEvent(new CustomEvent('menuConfigUpdated', {
-        detail: this.menuData
-      }))
-
-      setTimeout(() => {
-        this.saving = false
-        this.$message.success('配置保存成功')
-      }, 500)
+      // 调用API保存到数据库
+      saveMenuConfig(this.menuData)
+        .then(res => {
+          if (res && (res.code === 20000 || res.code === 200)) {
+            // 更新原始数据
+            this.originalData = JSON.parse(JSON.stringify(this.menuData))
+            // 重置未保存标志
+            this.hasUnsavedChanges = false
+            // 通知主页面更新
+            window.dispatchEvent(new CustomEvent('menuConfigUpdated', {
+              detail: this.menuData
+            }))
+            this.saving = false
+            this.$message.success('配置保存成功')
+          } else {
+            this.saving = false
+            this.$message.error('保存失败: ' + (res && res.message ? res.message : '未知错误'))
+          }
+        })
+        .catch(err => {
+          this.saving = false
+          console.error('保存配置错误:', err)
+          this.$message.error('保存失败，请查看控制台日志')
+        })
     },
 
     // 导出配置
@@ -948,6 +1094,10 @@ export default {
         newChild.scriptFile = 'scripts/new_script.py'
         newChild.description = '新的脚本文件'
         newChild.params = []
+        // 初始化需求列表字段
+        newChild.requirement_number = []
+        // 初始化下拉选择的临时模型（多选）
+        newChild._selectedRequirementIds = []
       }
 
       if (!data.children) {
@@ -971,8 +1121,13 @@ export default {
           this.currentNode = node
           this.hasUnsavedChanges = false
           // 确保有params数组
-          if (node.type === 'script' && !node.params) {
-            this.$set(node, 'params', [])
+          if (node.type === 'script') {
+            if (!node.params) {
+              this.$set(node, 'params', [])
+            }
+            if (!node.requirement_number) {
+              this.$set(node, 'requirement_number', [])
+            }
           }
         }).catch(() => {
           // 取消切换
@@ -980,8 +1135,16 @@ export default {
       } else {
         this.currentNode = node
         // 确保有params数组
-        if (node.type === 'script' && !node.params) {
-          this.$set(node, 'params', [])
+        if (node.type === 'script') {
+          if (!node.params) {
+            this.$set(node, 'params', [])
+          }
+          if (!node.requirement_number) {
+            this.$set(node, 'requirement_number', [])
+          }
+          if (!node._selectedRequirementIds) {
+            this.$set(node, '_selectedRequirementIds', [])
+          }
         }
       }
     },
@@ -1098,6 +1261,9 @@ export default {
         if (!this.currentNode.params) {
           this.$set(this.currentNode, 'params', [])
         }
+        if (!this.currentNode.requirement_number) {
+          this.$set(this.currentNode, 'requirement_number', [])
+        }
       }
     },
 
@@ -1114,6 +1280,47 @@ export default {
 
     removeParam(index) {
       this.currentNode.params.splice(index, 1)
+    },
+
+    // 需求信息管理：添加需求到脚本节点（支持单个 id 或数组）
+    addRequirementToNode(node, requirementIdOrArray) {
+      if (!node || !requirementIdOrArray) return
+      if (!node.requirement_number) {
+        this.$set(node, 'requirement_number', [])
+      }
+
+      const addOne = (requirementId) => {
+        if (!requirementId) return
+        const exist = node.requirement_number.some(r => r.id === requirementId)
+        if (exist) return
+        const req = this.requirementList.find(r => r.id === requirementId)
+        if (!req) return
+        node.requirement_number.push(JSON.parse(JSON.stringify(req)))
+      }
+
+      if (Array.isArray(requirementIdOrArray)) {
+        requirementIdOrArray.forEach(id => addOne(id))
+      } else {
+        addOne(requirementIdOrArray)
+      }
+
+      // 清空选择模型（多选时清空为[]，单选时设为 null）
+      if (Array.isArray(node._selectedRequirementIds)) {
+        node._selectedRequirementIds = []
+      } else {
+        node._selectedRequirementId = null
+      }
+      this.hasUnsavedChanges = true
+    },
+
+    // 从脚本节点移除需求
+    removeRequirementFromNode(node, requirementId) {
+      if (!node || !node.requirement_number) return
+      const idx = node.requirement_number.findIndex(r => r.id === requirementId)
+      if (idx > -1) {
+        node.requirement_number.splice(idx, 1)
+        this.hasUnsavedChanges = true
+      }
     },
 
     // 浏览脚本文件/打开上传对话框
@@ -1206,7 +1413,8 @@ export default {
       }
       // 将上传的脚本路径绑定到当前节点
       this.scriptNodeRef.scriptFile = this.uploadedScriptPath
-      this.hasUnsavedChanges = false
+      // 标记有未保存的脚本配置修改
+      this.hasUnsavedChanges = true
       this.$message.success('脚本已绑定')
       this.showScriptDialog = false
       // 重置状态
@@ -1240,11 +1448,13 @@ export default {
     selectServerScript(scriptPath) {
       if (this.currentNode) {
         this.currentNode.scriptFile = scriptPath
+        // 标记有未保存的脚本配置修改
+        this.hasUnsavedChanges = true
         this.$message.success('脚本已绑定')
         // 关闭两个对话框
         this.showServerScriptDialog = false
         this.showScriptDialog = false
-        // 重置状态
+        // 重置上传状态（服务器脚本选择不需要上传）
         this.scriptUploadSuccess = false
         this.uploadedScriptPath = ''
         this.scriptFileName = ''
@@ -1258,6 +1468,110 @@ export default {
       // 强制更新预览
       this.menuData = [...this.menuData]
       this.$message.success('预览已刷新')
+    },
+
+    // 加载需求列表从后端接口
+    loadRequirementList() {
+      this.loadingRequirements = true
+      getRequirementList()
+        .then(res => {
+          if (res && (res.code === 20000 || res.code === 200)) {
+            const data = res.data
+            if (Array.isArray(data)) {
+              this.requirementList = data
+              console.log('加载需求列表成功:', data)
+            } else {
+              this.$message.warning('需求列表格式不正确')
+            }
+          } else {
+            this.$message.error('加载需求列表失败: ' + (res && res.message ? res.message : '未知错误'))
+          }
+        })
+        .catch(err => {
+          console.error('加载需求列表错误:', err)
+          this.$message.error('加载需求列表失败，请检查后端服务')
+        })
+        .finally(() => {
+          this.loadingRequirements = false
+        })
+    },
+
+    // 打开需求上传对话框
+    openRequirementUploadDialog() {
+      this.showRequirementUploadDialog = true
+      this.requirementFile = null
+    },
+
+    // 处理需求文件选择
+    handleRequirementFileChange(file) {
+      const isExcel = file.raw.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+                      file.raw.type === 'application/vnd.ms-excel'
+      if (!isExcel) {
+        this.$message.error('请选择 Excel 文件（.xlsx 或 .xls）')
+        return false
+      }
+      this.requirementFile = file.raw
+      return false // 阻止自动上传
+    },
+
+    // 上传并保存需求（前端解析 xlsx 为 JSON 然后发送）
+    async uploadRequirements() {
+      if (!this.requirementFile) {
+        this.$message.warning('请先选择需求文件')
+        return
+      }
+      this.uploadingRequirements = true
+      try {
+        // 使用 FileReader 读取为 ArrayBuffer，然后用 XLSX 解析
+        const rows = await new Promise((resolve, reject) => {
+          const reader = new FileReader()
+          reader.onload = (e) => {
+            try {
+              const data = e.target.result
+              const wb = XLSX.read(data, { type: 'array' })
+              const firstSheet = wb.SheetNames[0]
+              const sheet = wb.Sheets[firstSheet]
+              const json = XLSX.utils.sheet_to_json(sheet, { defval: '' })
+              resolve(json)
+            } catch (err) {
+              reject(err)
+            }
+          }
+          reader.onerror = (err) => reject(err)
+          reader.readAsArrayBuffer(this.requirementFile)
+        })
+
+        if (!Array.isArray(rows) || rows.length === 0) {
+          this.$message.warning('Excel 内容为空或无法解析')
+          return
+        }
+
+        // 映射列名，兼容常见中文/英文列名
+        const mapped = rows.map(r => {
+          const id = r.id || r.ID || r['需求id'] || r['需求ID'] || null
+          const number = r.number || r['编号'] || r['需求编号'] || r['需求编号/编号'] || ''
+          const name = r.name || r['名称'] || r['需求名称'] || ''
+          const description = r.description || r['描述'] || ''
+          return { id, number, name, description }
+        })
+
+        // 发送 JSON 到后端
+        const res = await saveRequirementList(mapped)
+        if (res && (res.code === 20000 || res.code === 200)) {
+          this.$message.success('需求导入成功')
+          this.showRequirementUploadDialog = false
+          this.requirementFile = null
+          // 重新加载需求列表
+          this.loadRequirementList()
+        } else {
+          this.$message.error('上传需求失败: ' + (res && res.message ? res.message : '未知错误'))
+        }
+      } catch (err) {
+        console.error('解析或上传需求错误:', err)
+        this.$message.error('解析或上传需求失败，请查看控制台')
+      } finally {
+        this.uploadingRequirements = false
+      }
     }
   }
 }
@@ -1368,14 +1682,33 @@ export default {
 .tree-container {
   flex: 1;
   overflow: hidden;
+  border: 1px solid #dcdfe6;
+  border-radius: 4px;
+  background: #fff;
+}
+
+.tree-container >>> .el-tree {
+  padding: 10px 0;
+}
+
+.tree-container >>> .el-scrollbar__wrap {
+  overflow-x: hidden;
 }
 
 .tree-node {
+  flex: 1;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  width: 100%;
-  padding: 5px 0;
+  font-size: 13px;
+  padding: 5px 8px;
+  margin: 0 8px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.tree-node:hover {
+  background-color: #f5f7fa;
 }
 
 .node-content {
@@ -1383,11 +1716,14 @@ export default {
   align-items: center;
   gap: 8px;
   flex: 1;
+  overflow: hidden;
 }
 
 .node-icon {
   width: 16px;
+  text-align: center;
   color: #606266;
+  flex-shrink: 0;
 }
 
 .node-label {
@@ -1399,11 +1735,16 @@ export default {
 
 .script-tag {
   margin-left: 8px;
+  flex-shrink: 0;
 }
 
 .node-actions {
+  display: flex;
+  gap: 4px;
+  margin-left: 8px;
   opacity: 0;
-  transition: opacity 0.2s;
+  transition: opacity 0.2s ease;
+  flex-shrink: 0;
 }
 
 .tree-node:hover .node-actions {
@@ -1411,14 +1752,19 @@ export default {
 }
 
 .tree-stats {
-  padding: 10px;
-  border-top: 1px solid #ebeef5;
+  padding: 10px 15px;
+  border-top: 1px solid #dcdfe6;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
   background: #fafafa;
 }
 
 .stat-item {
   text-align: center;
-  padding: 5px;
+  padding: 5px 10px;
+  flex: 1;
 }
 
 .stat-label {
@@ -1428,8 +1774,8 @@ export default {
 }
 
 .stat-value {
-  font-size: 18px;
-  font-weight: bold;
+  font-size: 16px;
+  font-weight: 600;
   color: #409eff;
 }
 
@@ -1590,6 +1936,28 @@ export default {
 
 .script-upload-dialog {
   margin-bottom: 10px;
+}
+
+.requirement-dialog-tips {
+  margin-bottom: 15px;
+  padding: 10px;
+  background: #e6f7ff;
+  border-left: 4px solid #1890ff;
+  border-radius: 2px;
+  font-size: 12px;
+  color: #0050b3;
+}
+
+.requirement-dialog-tips i {
+  margin-right: 5px;
+}
+
+.requirement-upload-dialog {
+  margin-bottom: 10px;
+}
+
+.requirement-upload {
+  text-align: center;
 }
 
 /* 滚动条样式 */
