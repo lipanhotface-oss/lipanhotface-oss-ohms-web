@@ -523,10 +523,23 @@
             或 <em>点击上传</em>
           </div>
         </el-upload>
+
+        <div v-if="requirementPreview && requirementPreview.length" style="margin-top:12px;">
+          <div style="margin-bottom:8px; font-weight:500">解析预览（共 {{ requirementPreview.length }} 条）</div>
+          <div class="requirement-preview-container" style="max-height:300px; overflow:auto; border:1px solid #e6e6e6; padding:6px; border-radius:4px; background:#fff">
+            <el-table :data="requirementPreview" size="small" style="width:100%">
+              <el-table-column v-for="(h, idx) in requirementPreviewHeaders" :key="'col_'+idx" :prop="h" :label="h" />
+            </el-table>
+          </div>
+          <div style="margin-top:8px; color:#909399; font-size:12px">
+            <span v-if="!requirementPreviewValid" style="color:#f56c6c">表格缺少必需表头：ID、需求名称、备注。请检查列名后重试。</span>
+            <span v-else>表头检测通过，可点击“上传并保存”提交。</span>
+          </div>
+        </div>
       </div>
       <span slot="footer" class="dialog-footer">
-        <el-button @click="showRequirementUploadDialog = false">取消</el-button>
-        <el-button :loading="uploadingRequirements" :disabled="!requirementFile" type="primary" @click="uploadRequirements">上传并保存</el-button>
+        <el-button @click="closeRequirementUploadDialog">取消</el-button>
+        <el-button :loading="uploadingRequirements" :disabled="!requirementFile || !requirementPreviewValid" type="primary" @click="uploadRequirements">上传并保存</el-button>
       </span>
     </el-dialog>
   </div>
@@ -566,6 +579,7 @@ export default {
       scriptUploadSuccess: false, // 标记脚本是否上传成功
       uploadedScriptPath: '', // 临时存储上传后的脚本路径
       hasUnsavedChanges: false, // 标记是否有未保存的配置
+      saving: false, // 标记是否正在保存配置
       showServerScriptDialog: false, // 服务器脚本列表对话框
       serverScriptList: [], // 服务器上的脚本列表
       loadingServerScripts: false,
@@ -575,6 +589,9 @@ export default {
       loadingRequirements: false,
       showRequirementUploadDialog: false, // 需求上传对话框
       requirementFile: null, // 上传的 xlsx 文件
+      requirementPreview: [], // 解析后的预览数据 (未发送)
+      requirementPreviewHeaders: [], // 解析表格的实际表头（用于预览列）
+      requirementPreviewValid: false, // 预览表头是否包含必需字段
       uploadingRequirements: false,
 
       // 图标选项
@@ -1284,6 +1301,8 @@ export default {
 
     // 需求信息管理：添加需求到脚本节点（支持单个 id 或数组）
     addRequirementToNode(node, requirementIdOrArray) {
+      console.log(node, requirementIdOrArray);
+
       if (!node || !requirementIdOrArray) return
       if (!node.requirement_number) {
         this.$set(node, 'requirement_number', [])
@@ -1499,30 +1518,32 @@ export default {
     // 打开需求上传对话框
     openRequirementUploadDialog() {
       this.showRequirementUploadDialog = true
+      // 清空之前的选择和解析预览，保证每次选择文件都是新的会话
       this.requirementFile = null
+      this.requirementPreview = []
+      this.requirementPreviewHeaders = []
+      this.requirementPreviewValid = false
     },
 
     // 处理需求文件选择
-    handleRequirementFileChange(file) {
-      const isExcel = file.raw.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
-                      file.raw.type === 'application/vnd.ms-excel'
+    async handleRequirementFileChange(file) {
+      const raw = file && file.raw
+      if (!raw) return false
+      // 选择新文件时，先清空之前的预览数据（防止残留旧内容在解析失败时仍显示）
+      this.requirementPreview = []
+      this.requirementPreviewHeaders = []
+      this.requirementPreviewValid = false
+      const mime = raw.type || ''
+      const isExcel = mime === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+                      mime === 'application/vnd.ms-excel' ||
+                      raw.name && (raw.name.endsWith('.xlsx') || raw.name.endsWith('.xls'))
       if (!isExcel) {
         this.$message.error('请选择 Excel 文件（.xlsx 或 .xls）')
         return false
       }
-      this.requirementFile = file.raw
-      return false // 阻止自动上传
-    },
-
-    // 上传并保存需求（前端解析 xlsx 为 JSON 然后发送）
-    async uploadRequirements() {
-      if (!this.requirementFile) {
-        this.$message.warning('请先选择需求文件')
-        return
-      }
-      this.uploadingRequirements = true
+      this.requirementFile = raw
+      // 解析文件为 JSON 并填充预览（显示原始列以供确认）
       try {
-        // 使用 FileReader 读取为 ArrayBuffer，然后用 XLSX 解析
         const rows = await new Promise((resolve, reject) => {
           const reader = new FileReader()
           reader.onload = (e) => {
@@ -1538,37 +1559,93 @@ export default {
             }
           }
           reader.onerror = (err) => reject(err)
-          reader.readAsArrayBuffer(this.requirementFile)
+          reader.readAsArrayBuffer(raw)
         })
+        // 使用原始解析结果作为预览内容，保留原始列名
+        this.requirementPreview = rows || []
+        // 计算实际表头（优先使用首行的 keys）
+        this.requirementPreviewHeaders = this.requirementPreview.length ? Object.keys(this.requirementPreview[0]) : []
 
-        if (!Array.isArray(rows) || rows.length === 0) {
-          this.$message.warning('Excel 内容为空或无法解析')
-          return
+        // 简单校验：必须包含 编号/ID、需求名称、备注 之一（支持常见同义词），并以 `number,name,description` 发送给后端
+        const headersLower = this.requirementPreviewHeaders.map(h => String(h).toLowerCase())
+        const containsAny = (candidates) => candidates.some(c => headersLower.includes(c.toLowerCase()))
+
+        const hasNumber = containsAny(['number', '编号', '需求编号', 'id', '需求id'])
+        const hasName = containsAny(['需求名称', '名称', 'name'])
+        const hasRemark = containsAny(['备注', '描述', '说明', 'remark', 'description'])
+
+        this.requirementPreviewValid = hasNumber && hasName && hasRemark
+
+        if (!this.requirementPreview.length) {
+          this.$message.warning('Excel 内容为空或无法解析为需求')
+        }
+      } catch (err) {
+        console.error('解析 Excel 错误:', err)
+        this.$message.error('解析 Excel 失败，请检查文件格式')
+      }
+
+      return false // 阻止 el-upload 自动上传
+    },
+
+    // 关闭需求上传对话框并清空临时数据
+    closeRequirementUploadDialog() {
+      this.showRequirementUploadDialog = false
+      this.requirementFile = null
+      this.requirementPreview = []
+      this.requirementPreviewHeaders = []
+      this.requirementPreviewValid = false
+    },
+
+    // 上传并保存需求：发送已解析并确认的 JSON（requirementPreview）到后端
+    async uploadRequirements() {
+      if (!this.requirementPreview || !this.requirementPreview.length) {
+        this.$message.warning('没有可发送的需求数据，请先选择并解析 Excel 文件')
+        return
+      }
+      if (!this.requirementPreviewValid) {
+        this.$message.warning('表格缺少必需表头（ID、需求名称、备注），请检查后重试')
+        return
+      }
+      this.uploadingRequirements = true
+      try {
+        // 发送 JSON 到后端（后端应接受数组 JSON）
+        // 先将原始 preview 映射为后端需要的 {id,name,description}
+        const headers = this.requirementPreviewHeaders.map(h => String(h))
+        const headersLower = headers.map(h => h.toLowerCase())
+        const findHeader = (candidates) => {
+          for (const cand of candidates) {
+            const idx = headersLower.indexOf(cand.toLowerCase())
+            if (idx > -1) return headers[idx]
+          }
+          return null
         }
 
-        // 映射列名，兼容常见中文/英文列名
-        const mapped = rows.map(r => {
-          const id = r.id || r.ID || r['需求id'] || r['需求ID'] || null
-          const number = r.number || r['编号'] || r['需求编号'] || r['需求编号/编号'] || ''
-          const name = r.name || r['名称'] || r['需求名称'] || ''
-          const description = r.description || r['描述'] || ''
-          return { id, number, name, description }
-        })
+        const numberKey = findHeader(['number', '编号', '需求编号', 'id', '需求id'])
+        const nameKey = findHeader(['需求名称', '名称', 'name'])
+        const descKey = findHeader(['备注', '描述', '说明', 'remark', 'description'])
 
-        // 发送 JSON 到后端
+        const mapped = this.requirementPreview.map(r => ({
+          number: r[numberKey] != null ? String(r[numberKey]) : null,
+          name: r[nameKey] != null ? String(r[nameKey]) : '',
+          description: r[descKey] != null ? String(r[descKey]) : ''
+        }))
+
         const res = await saveRequirementList(mapped)
         if (res && (res.code === 20000 || res.code === 200)) {
           this.$message.success('需求导入成功')
           this.showRequirementUploadDialog = false
           this.requirementFile = null
+          this.requirementPreview = []
+          this.requirementPreviewHeaders = []
+          this.requirementPreviewValid = false
           // 重新加载需求列表
           this.loadRequirementList()
         } else {
           this.$message.error('上传需求失败: ' + (res && res.message ? res.message : '未知错误'))
         }
       } catch (err) {
-        console.error('解析或上传需求错误:', err)
-        this.$message.error('解析或上传需求失败，请查看控制台')
+        console.error('上传需求错误:', err)
+        this.$message.error('上传需求失败，请查看控制台')
       } finally {
         this.uploadingRequirements = false
       }
