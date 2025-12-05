@@ -275,12 +275,12 @@
                         <div v-if="row.requirement_number && row.requirement_number.length > 0" class="requirements-list">
                           <el-tag
                             v-for="req in row.requirement_number"
-                            :key="req.id"
+                            :key="req.number"
                             type="info"
                             size="mini"
                             class="requirement-tag"
                           >
-                            {{ req.name }}
+                            {{ req.number }}
                           </el-tag>
                         </div>
                         <span v-else class="requirement-empty">-</span>
@@ -379,34 +379,39 @@
           <div class="bottom-panel">
 
             <el-card class="console-card">
-              <div slot="header" class="card-header">
-                <span>执行控制台</span>
-                <!-- <div class="card-actions">
-                  <el-button-group size="mini">
-                    <el-button
-                      type="text"
-                      icon="el-icon-copy-document"
-                      @click="copyConsole"
-                    >
-                      复制
-                    </el-button>
-                    <el-button
-                      type="text"
-                      icon="el-icon-download"
-                      @click="downloadConsole"
-                    >
-                      下载
-                    </el-button>
-                    <el-button
-                      type="text"
-                      icon="el-icon-delete"
-                      @click="clearConsole"
-                    >
-                      清空
-                    </el-button>
-                  </el-button-group>
-                </div> -->
-              </div>
+              <el-row>
+                <el-col :span="18">
+                  <div><span>执行控制台</span></div>
+                </el-col>
+                <el-col :span="2">
+                  <el-button
+                    type="text"
+                    icon="el-icon-copy-document"
+                    @click="copyConsole"
+                  >
+                    复制
+                  </el-button>
+                </el-col>
+                <el-col :span="2">
+                  <el-button
+                    type="text"
+                    icon="el-icon-download"
+                    @click="downloadConsole"
+                  >
+                    下载
+                  </el-button>
+                </el-col>
+                <el-col :span="2">
+
+                  <el-button
+                    type="text"
+                    icon="el-icon-delete"
+                    @click="clearConsole"
+                  >
+                    清空
+                  </el-button>
+                </el-col>
+              </el-row>
               <div class="console-content">
                 <div class="console-output-area" style="height:250px">
                   <pre
@@ -520,7 +525,7 @@ import 'codemirror/theme/monokai.css'
 import 'codemirror/mode/python/python.js'
 import 'codemirror/addon/selection/active-line.js'
 import 'codemirror/addon/edit/matchbrackets.js'
-import { getMenuConfig } from '@/api/script'
+import { getMenuConfig, runPythonBat } from '@/api/script'
 export default {
   components: {
     codemirror
@@ -646,6 +651,28 @@ export default {
   },
 
   methods: {
+    async createWebSocket(taskId) {
+      return new Promise(resolve => {
+        this.socket = new WebSocket('ws://localhost:9001')
+
+        this.socket.onopen = () => {
+          this.socket.send(JSON.stringify({ type: 'bind', taskId }))
+          resolve()
+        }
+
+        this.socket.onmessage = (event) => {
+          const msg = JSON.parse(event.data)
+
+          if (msg.type === 'log') {
+            this.logToConsole(msg.message)
+          } else if (msg.type === 'error') {
+            this.logToConsole('错误：' + msg.message)
+          } else if (msg.type === 'end') {
+            this._scriptFinished()
+          }
+        }
+      })
+    },
     // 初始化数据
     initData() {
       this.getTreeData()
@@ -669,162 +696,6 @@ export default {
           console.error('从数据库读取配置失败:', err)
           this.treeMenus = []
         })
-      // return [
-      //   {
-      //     id: 'group_1',
-      //     name: 'P1',
-      //     icon: 'el-icon-s-data',
-      //     type: 'group',
-      //     children: [
-      //       {
-      //         id: 'p1',
-      //         name: 'P1飞行状态',
-      //         icon: 'el-icon-monitor',
-      //         type: 'menu',
-      //         children: [
-      //           {
-      //             id: 'script_1',
-      //             name: '飞行状态监控',
-      //             icon: 'el-icon-s-promotion',
-      //             type: 'function',
-      //             data: {
-      //               name: '飞行状态监控-S001',
-      //               description: '实时监控飞行状态和参数',
-      //               script: 'scripts/flight_status.py',
-      //               status: 'ready',
-      //               parameters: [
-      //                 {
-      //                   name: 'interval',
-      //                   label: '监控间隔',
-      //                   type: 'number',
-      //                   default: 5,
-      //                   min: 1,
-      //                   max: 60
-      //                 }
-      //               ]
-      //             }
-      //           },
-      //           {
-      //             id: 'script_2',
-      //             name: '飞机事件S001',
-      //             icon: 'el-icon-fan',
-      //             type: 'function',
-      //             data: {
-      //               name: '飞机事件S001',
-      //               description: '监控发动机运行状态',
-      //               script: 'scripts/engine_monitor.py',
-      //               status: 'ready'
-      //             }
-      //           }
-      //         ]
-      //       }
-      //     ]
-      //   },
-      //   {
-      //     id: 'group_2',
-      //     name: 'P2',
-      //     icon: 'el-icon-s-data',
-      //     type: 'group',
-      //     children: [
-      //       {
-      //         id: 'p2',
-      //         name: 'P2通信测试',
-      //         icon: 'el-icon-cpu',
-      //         type: 'menu',
-      //         children: [
-      //           {
-      //             id: 'script_2-1',
-      //             name: 'P2通信测试',
-      //             icon: 'el-icon-s-operation',
-      //             type: 'function',
-      //             data: {
-      //               name: 'P2通信测试',
-      //               description: '数据处理和分析脚本',
-      //               script: 'scripts/data_processing.py',
-      //               status: 'ready'
-      //             }
-      //           }
-      //         ]
-      //       }
-      //     ]
-      //   },
-      //   {
-      //     id: 'group_3',
-      //     name: 'P3',
-      //     icon: 'el-icon-s-data',
-      //     type: 'group',
-      //     children: [
-      //       {
-      //         id: 'p3-1',
-      //         name: 'P3故障诊断',
-      //         icon: 'el-icon-s-opportunity',
-      //         type: 'menu',
-      //         children: [
-      //           {
-      //             id: 'script_5',
-      //             name: '故障诊断S001',
-      //             icon: 'el-icon-s-claim',
-      //             type: 'function',
-      //             data: {
-      //               name: '故障诊断S001',
-      //               description: '自动化单元测试脚本',
-      //               script: 'scripts/unit_test.py',
-      //               status: 'ready'
-      //             }
-      //           }
-      //         ]
-      //       },
-      //       {
-      //         id: 'p3-2',
-      //         name: 'P3维护模式',
-      //         icon: 'el-icon-s-flag',
-      //         type: 'menu',
-      //         children: [
-      //           {
-      //             id: 'script_6',
-      //             name: '维护模式S001',
-      //             icon: 'el-icon-s-marketing',
-      //             type: 'function',
-      //             data: {
-      //               name: '维护模式S001',
-      //               description: '系统集成测试脚本',
-      //               script: 'scripts/integration_test.py',
-      //               status: 'ready'
-      //             }
-      //           }
-      //         ]
-      //       }
-      //     ]
-      //   },
-      //   {
-      //     id: 'group_4',
-      //     name: 'P4',
-      //     icon: 'el-icon-s-data',
-      //     type: 'group',
-      //     children: [
-      //       {
-      //         id: 'p4',
-      //         name: 'P4构型管理',
-      //         icon: 'el-icon-cpu',
-      //         type: 'menu',
-      //         children: [
-      //           {
-      //             id: 'script_4-1',
-      //             name: '构型管理S001',
-      //             icon: 'el-icon-s-operation',
-      //             type: 'function',
-      //             data: {
-      //               name: '构型管理S001',
-      //               description: '构型管理S001',
-      //               script: 'scripts/data_processing.py',
-      //               status: 'ready'
-      //             }
-      //           }
-      //         ]
-      //       }
-      //     ]
-      //   }
-      // ]
     },
 
     // 获取子节点数量
@@ -885,12 +756,10 @@ export default {
         this.selectedScripts.push({
           id: node.id,
           name: node.name,
+          scriptFile: node.scriptFile,
+          params: node.params || {},
           description: node.description,
-          requirement_number: [
-            { id: 1, name: '需求1' },
-            { id: 2, name: '需求2' },
-
-          ],
+          requirement_number: node.requirement_number,
           selectedRequirementId: null,
           status: 'ready',
           progress: 0,
@@ -914,37 +783,6 @@ export default {
         this.selectedKeys.delete(script.id)
         this.$refs.treeRef.setChecked(script.id, false)
         this.selectedScripts.splice(index, 1)
-      }
-    },
-
-    // 添加需求
-    addRequirement(script, requirementId) {
-      if (!requirementId) return
-      // 检查该需求是否已经添加
-      const exists = script.requirement_number.some(req => req.id === requirementId)
-      if (exists) {
-        this.$message.warning('该需求已添加')
-        script.selectedRequirementId = null
-        return
-      }
-      // 从列表中找到对应的需求
-      const requirement = this.requirementNumberList.find(r => r.id === requirementId)
-      if (requirement) {
-        script.requirement_number.push({ ...requirement })
-        this.$message.success('需求添加成功')
-        script.selectedRequirementId = null
-      }
-    },
-
-    // 删除需求
-    removeRequirement(scriptId, requirementId) {
-      const script = this.selectedScripts.find(s => s.id === scriptId)
-      if (script && script.requirement_number) {
-        const index = script.requirement_number.findIndex(req => req.id === requirementId)
-        if (index !== -1) {
-          script.requirement_number.splice(index, 1)
-          this.$message.success('需求已删除')
-        }
       }
     },
 
@@ -1053,59 +891,88 @@ export default {
         await this.sleep(this.executionConfig.interval * 1000)
       }
     },
-
     // 执行单个脚本
     async executeSingleScript(script, loopIndex) {
-      try {
+      console.log(1111111111, script)
+
+      const taskId = `${script.id}_${loopIndex}_${Date.now()}`
+      // 建立 WebSocket 连接
+      await this.createWebSocket(taskId)
+      // 启动脚本执行
+      const res = await runPythonBat(script.scriptFile, taskId)
+      if (res && (res.code === 20000 || res.code === 200)) {
+        this.$message.success('任务启动成功！')
         this.updateScriptStatus(script.id, 'processing', 0)
         this.logToConsole(`开始执行: ${script.name} (第${loopIndex}次循环)`)
-
-        const startTime = Date.now()
-
-        // 模拟执行进度
-        const updateProgress = async() => {
-          for (let progress = 0; progress <= 100; progress += 20) {
-            if (script.status !== 'processing') break
-            this.updateScriptProgress(script.id, progress)
-            await this.sleep(200)
-          }
-        }
-
-        await Promise.all([
-          updateProgress(),
-          this.sleep(1000 + Math.random() * 2000) // 模拟执行时间
-        ])
-
-        const duration = Math.round((Date.now() - startTime) / 1000)
-        const success = Math.random() > 0.3 // 70%成功率
-
-        if (success) {
-          this.updateScriptStatus(script.id, 'success', 100)
-          this.updateScriptDuration(script.id, duration)
-          this.stats.success++
-          this.logToConsole(`✓ ${script.name} 执行成功 (耗时: ${duration}s)`)
-        } else {
-          this.updateScriptStatus(script.id, 'failed', 100)
-          this.stats.failed++
-          this.logToConsole(`✗ ${script.name} 执行失败`)
-
-          if (this.executionConfig.failAction === 'stop') {
-            throw new Error(`${script.name} 执行失败，停止执行`)
-          }
-        }
-
-        this.stats.processing--
-        this.stats.totalTime += duration
-      } catch (error) {
-        this.updateScriptStatus(script.id, 'failed', 100)
-        this.stats.failed++
-        this.stats.processing--
-        this.logToConsole(`✗ ${script.name} 执行出错: ${error.message}`)
-
-        if (this.executionConfig.failAction === 'stop') {
-          throw error
-        }
+      } else {
+        this.$message.error('任务启动失败！: ' + (res && res.message ? res.message : '未知错误'))
       }
+      // 模拟执行进度
+      // this.updateScriptProgress(script.id, progress)
+      // 等待执行结束
+      await this.waitPythonFinish()
+    },
+    // // 执行单个脚本
+    // async executeSingleScript(script, loopIndex) {
+    //   try {
+    //     this.updateScriptStatus(script.id, 'processing', 0)
+    //     this.logToConsole(`开始执行: ${script.name} (第${loopIndex}次循环)`)
+
+    //     const startTime = Date.now()
+
+    //     // 模拟执行进度
+    //     const updateProgress = async() => {
+    //       for (let progress = 0; progress <= 100; progress += 20) {
+    //         if (script.status !== 'processing') break
+    //         this.updateScriptProgress(script.id, progress)
+    //         await this.sleep(200)
+    //       }
+    //     }
+
+    //     await Promise.all([
+    //       updateProgress(),
+    //       this.sleep(1000 + Math.random() * 2000) // 模拟执行时间
+    //     ])
+
+    //     const duration = Math.round((Date.now() - startTime) / 1000)
+    //     const success = Math.random() > 0.3 // 70%成功率
+
+    //     if (success) {
+    //       this.updateScriptStatus(script.id, 'success', 100)
+    //       this.updateScriptDuration(script.id, duration)
+    //       this.stats.success++
+    //       this.logToConsole(`✓ ${script.name} 执行成功 (耗时: ${duration}s)`)
+    //     } else {
+    //       this.updateScriptStatus(script.id, 'failed', 100)
+    //       this.stats.failed++
+    //       this.logToConsole(`✗ ${script.name} 执行失败`)
+
+    //       if (this.executionConfig.failAction === 'stop') {
+    //         throw new Error(`${script.name} 执行失败，停止执行`)
+    //       }
+    //     }
+
+    //     this.stats.processing--
+    //     this.stats.totalTime += duration
+    //   } catch (error) {
+    //     this.updateScriptStatus(script.id, 'failed', 100)
+    //     this.stats.failed++
+    //     this.stats.processing--
+    //     this.logToConsole(`✗ ${script.name} 执行出错: ${error.message}`)
+
+    //     if (this.executionConfig.failAction === 'stop') {
+    //       throw error
+    //     }
+    //   }
+    // },
+
+    waitPythonFinish() {
+      return new Promise(resolve => {
+        this._scriptFinished = () => {
+          this.socket.close()
+          resolve()
+        }
+      })
     },
 
     // 切换单个脚本执行状态

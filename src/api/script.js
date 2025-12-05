@@ -52,3 +52,15 @@ export function saveRequirementList(requirementsData) {
     data: requirementsData
   })
 }
+// // 保存需求列表到数据库
+// post('/api/run_python', {
+//         scriptPath: script.path,
+//         taskId
+//       })
+export function runPythonBat(path, taskId) {
+  return request({
+    url: '/api/run_python',
+    method: 'post',
+    data: { scriptPath: path, taskId: taskId }
+  })
+}

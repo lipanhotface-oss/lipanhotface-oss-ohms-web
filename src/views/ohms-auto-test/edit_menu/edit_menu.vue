@@ -295,9 +295,9 @@
                       >
                         <el-option
                           v-for="r in requirementList"
-                          :key="r.id"
+                          :key="r.number"
                           :label="r.number + ' - ' + r.name"
-                          :value="r.id"
+                          :value="r.number"
                         />
                       </el-select>
                       <el-button type="text" size="small" @click="currentNode._selectedRequirementIds = []">清除选择</el-button>
@@ -1310,9 +1310,9 @@ export default {
 
       const addOne = (requirementId) => {
         if (!requirementId) return
-        const exist = node.requirement_number.some(r => r.id === requirementId)
+        const exist = node.requirement_number.some(r => r.number === requirementId)
         if (exist) return
-        const req = this.requirementList.find(r => r.id === requirementId)
+        const req = this.requirementList.find(r => r.number === requirementId)
         if (!req) return
         node.requirement_number.push(JSON.parse(JSON.stringify(req)))
       }
