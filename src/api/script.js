@@ -64,3 +64,10 @@ export function runPythonBat(path, taskId) {
     data: { scriptPath: path, taskId: taskId }
   })
 }
+export function stopPythonBat(taskId) {
+  return request({
+    url: '/api/stop_python',
+    method: 'post',
+    data: { taskId: taskId }
+  })
+}

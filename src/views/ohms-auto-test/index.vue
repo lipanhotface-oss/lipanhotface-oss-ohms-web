@@ -525,7 +525,7 @@ import 'codemirror/theme/monokai.css'
 import 'codemirror/mode/python/python.js'
 import 'codemirror/addon/selection/active-line.js'
 import 'codemirror/addon/edit/matchbrackets.js'
-import { getMenuConfig, runPythonBat } from '@/api/script'
+import { getMenuConfig, runPythonBat, stopPythonBat } from '@/api/script'
 export default {
   components: {
     codemirror
@@ -594,7 +594,7 @@ export default {
       scriptEditorContent: '',
       scriptParams: {},
       showScriptDetail: false,
-
+      currentExecutionTasgId: null,
       // 编辑器配置
       editorOptions: {
         tabSize: 4,
@@ -662,7 +662,6 @@ export default {
 
         this.socket.onmessage = (event) => {
           const msg = JSON.parse(event.data)
-
           if (msg.type === 'log') {
             this.logToConsole(msg.message)
           } else if (msg.type === 'error') {
@@ -901,6 +900,7 @@ export default {
       // 启动脚本执行
       const res = await runPythonBat(script.scriptFile, taskId)
       if (res && (res.code === 20000 || res.code === 200)) {
+        this.currentExecutionTasgId = taskId
         this.$message.success('任务启动成功！')
         this.updateScriptStatus(script.id, 'processing', 0)
         this.logToConsole(`开始执行: ${script.name} (第${loopIndex}次循环)`)
@@ -912,59 +912,6 @@ export default {
       // 等待执行结束
       await this.waitPythonFinish()
     },
-    // // 执行单个脚本
-    // async executeSingleScript(script, loopIndex) {
-    //   try {
-    //     this.updateScriptStatus(script.id, 'processing', 0)
-    //     this.logToConsole(`开始执行: ${script.name} (第${loopIndex}次循环)`)
-
-    //     const startTime = Date.now()
-
-    //     // 模拟执行进度
-    //     const updateProgress = async() => {
-    //       for (let progress = 0; progress <= 100; progress += 20) {
-    //         if (script.status !== 'processing') break
-    //         this.updateScriptProgress(script.id, progress)
-    //         await this.sleep(200)
-    //       }
-    //     }
-
-    //     await Promise.all([
-    //       updateProgress(),
-    //       this.sleep(1000 + Math.random() * 2000) // 模拟执行时间
-    //     ])
-
-    //     const duration = Math.round((Date.now() - startTime) / 1000)
-    //     const success = Math.random() > 0.3 // 70%成功率
-
-    //     if (success) {
-    //       this.updateScriptStatus(script.id, 'success', 100)
-    //       this.updateScriptDuration(script.id, duration)
-    //       this.stats.success++
-    //       this.logToConsole(`✓ ${script.name} 执行成功 (耗时: ${duration}s)`)
-    //     } else {
-    //       this.updateScriptStatus(script.id, 'failed', 100)
-    //       this.stats.failed++
-    //       this.logToConsole(`✗ ${script.name} 执行失败`)
-
-    //       if (this.executionConfig.failAction === 'stop') {
-    //         throw new Error(`${script.name} 执行失败，停止执行`)
-    //       }
-    //     }
-
-    //     this.stats.processing--
-    //     this.stats.totalTime += duration
-    //   } catch (error) {
-    //     this.updateScriptStatus(script.id, 'failed', 100)
-    //     this.stats.failed++
-    //     this.stats.processing--
-    //     this.logToConsole(`✗ ${script.name} 执行出错: ${error.message}`)
-
-    //     if (this.executionConfig.failAction === 'stop') {
-    //       throw error
-    //     }
-    //   }
-    // },
 
     waitPythonFinish() {
       return new Promise(resolve => {
@@ -985,9 +932,14 @@ export default {
     },
 
     // 停止脚本执行
-    stopScriptExecution(script) {
-      this.updateScriptStatus(script.id, 'stopped', 0)
-      this.logToConsole(`! ${script.name} 执行已停止`)
+    async stopScriptExecution(script) {
+      const res = await stopPythonBat(this.currentExecutionTasgId)
+      if (res && (res.code === 20000 || res.code === 200)) {
+        this.updateScriptStatus(script.id, 'stopped', 0)
+        this.logToConsole(`! ${script.name} 执行已停止`)
+      } else {
+        this.$message.error('任务停止失败！: ' + (res && res.message ? res.message : '未知错误'))
+      }
     },
 
     // 更新脚本状态
@@ -1092,6 +1044,7 @@ export default {
 
     // 执行控制台命令
     executeConsoleCommand() {
+      console.log('执行控制台命令', this.consoleCommand)
       const command = this.consoleCommand.trim()
       if (!command) return
 
@@ -1116,7 +1069,6 @@ export default {
         default:
           this.logToConsole(`未知命令: ${command}`)
       }
-
       this.consoleCommand = ''
     },
 
@@ -1174,12 +1126,6 @@ export default {
         this.executionConfig = { ...this.executionConfig, ...JSON.parse(saved) }
       }
     },
-
-    // 保存执行配置
-    saveExecutionConfig() {
-      localStorage.setItem('execution_config', JSON.stringify(this.executionConfig))
-    },
-
     // 睡眠函数
     sleep(ms) {
       return new Promise(resolve => setTimeout(resolve, ms))
